@@ -25,6 +25,28 @@ export interface LoanEntry {
   paidDate?: string;
 }
 
+export interface FixedExpenseTemplate {
+  id: string;
+  name: string;
+  amount: number;
+  entries: FixedExpenseEntry[];
+  createdAt: string;
+}
+
+export interface FixedExpenseEntry {
+  id: string;
+  date: string;
+  amount: number;
+}
+
+export interface MessPurchase {
+  id: string;
+  name: string;
+  amount: number;
+  date: string;
+  createdAt: string;
+}
+
 export interface FixedExpense {
   id: string;
   name: string;
@@ -60,7 +82,7 @@ export interface SavedCard {
 
 export interface ActivityItem {
   id: string;
-  type: 'expense_added' | 'expense_edited' | 'expense_deleted' | 'budget_updated' | 'card_added' | 'card_deleted' | 'goal_added' | 'goal_updated' | 'loan_added' | 'loan_updated' | 'fixed_added' | 'fixed_deleted';
+  type: 'expense_added' | 'expense_edited' | 'expense_deleted' | 'budget_updated' | 'card_added' | 'card_deleted' | 'goal_added' | 'goal_updated' | 'loan_added' | 'loan_updated' | 'fixed_added' | 'fixed_deleted' | 'mess_added' | 'mess_deleted';
   description: string;
   date: string;
   amount?: number;

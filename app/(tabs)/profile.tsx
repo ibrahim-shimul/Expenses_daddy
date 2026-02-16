@@ -96,26 +96,43 @@ export default function ProfileScreen() {
         const a = document.createElement('a');
         a.href = url;
         a.download = fileName;
+        document.body.appendChild(a);
         a.click();
+        document.body.removeChild(a);
         URL.revokeObjectURL(url);
         setExportStatus('Downloaded!');
       } else {
-        const filePath = `${FileSystem.documentDirectory}${fileName}`;
-        await FileSystem.writeAsStringAsync(filePath, jsonData);
+        const dir = FileSystem.cacheDirectory || FileSystem.documentDirectory;
+        const filePath = `${dir}${fileName}`;
+        await FileSystem.writeAsStringAsync(filePath, jsonData, {
+          encoding: FileSystem.EncodingType.UTF8,
+        });
+
         const canShare = await Sharing.isAvailableAsync();
         if (canShare) {
-          await Sharing.shareAsync(filePath, {
-            mimeType: 'application/json',
-            dialogTitle: 'Save your backup',
-            UTI: 'public.json',
+          try {
+            await Sharing.shareAsync(filePath, {
+              mimeType: 'application/json',
+              dialogTitle: 'Save your backup',
+              UTI: 'public.json',
+            });
+          } catch (shareErr) {
+            // User may have dismissed the share dialog - that's ok
+          }
+          setExportStatus('Exported!');
+        } else {
+          await Share.share({
+            message: jsonData,
+            title: fileName,
           });
+          setExportStatus('Exported!');
         }
-        setExportStatus('Exported!');
       }
-      setTimeout(() => setExportStatus(''), 2000);
-    } catch (e) {
+      setTimeout(() => setExportStatus(''), 3000);
+    } catch (e: any) {
+      console.log('Export error:', e?.message || e);
       setExportStatus('Export failed');
-      setTimeout(() => setExportStatus(''), 2000);
+      setTimeout(() => setExportStatus(''), 3000);
     }
   };
 

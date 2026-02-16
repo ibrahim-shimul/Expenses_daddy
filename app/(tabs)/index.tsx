@@ -63,7 +63,7 @@ export default function HomeScreen() {
   const {
     profile, todayTotal, monthTotal, remainingBudget, remainingDailyBudget,
     expenses, monthExpenses, isLoading,
-    monthFixedTotal, totalLoansOutstanding, loans,
+    monthFixedTotal, totalLoansOutstanding, loans, monthMessTotal,
   } = useBudget();
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
@@ -155,15 +155,24 @@ export default function HomeScreen() {
           />
         </View>
 
-        {(monthFixedTotal > 0 || totalLoansOutstanding > 0) && (
+        {(monthFixedTotal > 0 || totalLoansOutstanding > 0 || monthMessTotal > 0) && (
           <View style={styles.extraStatsRow}>
             {monthFixedTotal > 0 && (
               <View style={styles.extraStatCard}>
                 <View style={[styles.statIconContainer, { backgroundColor: '#BB8FCE15' }]}>
-                  <Ionicons name="calendar-outline" size={18} color="#BB8FCE" />
+                  <Ionicons name="repeat-outline" size={18} color="#BB8FCE" />
                 </View>
                 <Text style={styles.statLabel}>Fixed (Month)</Text>
                 <Text style={styles.statValue}>{formatCurrency(monthFixedTotal, profile.currency)}</Text>
+              </View>
+            )}
+            {monthMessTotal > 0 && (
+              <View style={styles.extraStatCard}>
+                <View style={[styles.statIconContainer, { backgroundColor: '#4ECDC415' }]}>
+                  <Ionicons name="restaurant-outline" size={18} color="#4ECDC4" />
+                </View>
+                <Text style={styles.statLabel}>Mess (Month)</Text>
+                <Text style={styles.statValue}>{formatCurrency(monthMessTotal, profile.currency)}</Text>
               </View>
             )}
             {totalLoansOutstanding > 0 && (

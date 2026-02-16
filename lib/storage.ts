@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { Expense, BudgetHistory, SavingsGoal, SavedCard, ActivityItem, UserProfile, LoanEntry, FixedExpense } from './types';
+import type { Expense, BudgetHistory, SavingsGoal, SavedCard, ActivityItem, UserProfile, LoanEntry, FixedExpense, FixedExpenseTemplate, FixedExpenseEntry, MessPurchase } from './types';
 
 const KEYS = {
   EXPENSES: '@budgetflow_expenses',
@@ -11,6 +11,8 @@ const KEYS = {
   SHOPPING_LIST: '@budgetflow_shopping_list',
   LOANS: '@budgetflow_loans',
   FIXED_EXPENSES: '@budgetflow_fixed_expenses',
+  FIXED_TEMPLATES: '@budgetflow_fixed_templates',
+  MESS_PURCHASES: '@budgetflow_mess_purchases',
 };
 
 async function getItem<T>(key: string, fallback: T): Promise<T> {
@@ -132,6 +134,77 @@ export async function deleteFixedExpense(id: string): Promise<void> {
   await addActivity({ type: 'fixed_deleted', description: 'Deleted fixed expense' });
 }
 
+export async function getFixedTemplates(): Promise<FixedExpenseTemplate[]> {
+  return getItem<FixedExpenseTemplate[]>(KEYS.FIXED_TEMPLATES, []);
+}
+
+export async function addFixedTemplate(name: string, amount: number): Promise<FixedExpenseTemplate> {
+  const templates = await getFixedTemplates();
+  const newTemplate: FixedExpenseTemplate = {
+    id: generateId(),
+    name,
+    amount,
+    entries: [],
+    createdAt: new Date().toISOString(),
+  };
+  templates.unshift(newTemplate);
+  await setItem(KEYS.FIXED_TEMPLATES, templates);
+  await addActivity({ type: 'fixed_added', description: `Created fixed tracker: ${name}`, amount });
+  return newTemplate;
+}
+
+export async function addFixedTemplateEntry(templateId: string): Promise<void> {
+  const templates = await getFixedTemplates();
+  const index = templates.findIndex(t => t.id === templateId);
+  if (index !== -1) {
+    const entry: FixedExpenseEntry = {
+      id: generateId(),
+      date: new Date().toISOString(),
+      amount: templates[index].amount,
+    };
+    templates[index].entries.push(entry);
+    await setItem(KEYS.FIXED_TEMPLATES, templates);
+  }
+}
+
+export async function removeFixedTemplateEntry(templateId: string, entryId: string): Promise<void> {
+  const templates = await getFixedTemplates();
+  const index = templates.findIndex(t => t.id === templateId);
+  if (index !== -1) {
+    templates[index].entries = templates[index].entries.filter(e => e.id !== entryId);
+    await setItem(KEYS.FIXED_TEMPLATES, templates);
+  }
+}
+
+export async function deleteFixedTemplate(id: string): Promise<void> {
+  const templates = await getFixedTemplates();
+  await setItem(KEYS.FIXED_TEMPLATES, templates.filter(t => t.id !== id));
+  await addActivity({ type: 'fixed_deleted', description: 'Deleted fixed tracker' });
+}
+
+export async function getMessPurchases(): Promise<MessPurchase[]> {
+  return getItem<MessPurchase[]>(KEYS.MESS_PURCHASES, []);
+}
+
+export async function addMessPurchase(purchase: Omit<MessPurchase, 'id' | 'createdAt'>): Promise<MessPurchase> {
+  const purchases = await getMessPurchases();
+  const newPurchase: MessPurchase = {
+    ...purchase,
+    id: generateId(),
+    createdAt: new Date().toISOString(),
+  };
+  purchases.unshift(newPurchase);
+  await setItem(KEYS.MESS_PURCHASES, purchases);
+  await addActivity({ type: 'mess_added', description: `Mess: ${purchase.name}`, amount: purchase.amount });
+  return newPurchase;
+}
+
+export async function deleteMessPurchase(id: string): Promise<void> {
+  const purchases = await getMessPurchases();
+  await setItem(KEYS.MESS_PURCHASES, purchases.filter(p => p.id !== id));
+  await addActivity({ type: 'mess_deleted', description: 'Deleted mess purchase' });
+}
+
 export async function getBudgetHistory(): Promise<BudgetHistory[]> {
   return getItem<BudgetHistory[]>(KEYS.BUDGET_HISTORY, []);
 }
@@ -232,7 +305,7 @@ export async function setShoppingList(list: string[]): Promise<void> {
 }
 
 export async function exportAllData(): Promise<string> {
-  const [expenses, profile, savingsGoals, savedCards, activityLog, budgetHistory, shoppingList, loans, fixedExpenses] = await Promise.all([
+  const [expenses, profile, savingsGoals, savedCards, activityLog, budgetHistory, shoppingList, loans, fixedExpenses, fixedTemplates, messPurchases] = await Promise.all([
     getExpenses(),
     getUserProfile(),
     getSavingsGoals(),
@@ -242,10 +315,12 @@ export async function exportAllData(): Promise<string> {
     getShoppingList(),
     getLoans(),
     getFixedExpenses(),
+    getFixedTemplates(),
+    getMessPurchases(),
   ]);
 
   const data = {
-    version: 2,
+    version: 3,
     exportDate: new Date().toISOString(),
     appName: 'ExpenseDaddy',
     expenses,
@@ -257,6 +332,8 @@ export async function exportAllData(): Promise<string> {
     shoppingList,
     loans,
     fixedExpenses,
+    fixedTemplates,
+    messPurchases,
   };
 
   return JSON.stringify(data, null, 2);
@@ -280,6 +357,8 @@ export async function importAllData(jsonString: string): Promise<void> {
   if (data.shoppingList) promises.push(setItem(KEYS.SHOPPING_LIST, data.shoppingList));
   if (data.loans) promises.push(setItem(KEYS.LOANS, data.loans));
   if (data.fixedExpenses) promises.push(setItem(KEYS.FIXED_EXPENSES, data.fixedExpenses));
+  if (data.fixedTemplates) promises.push(setItem(KEYS.FIXED_TEMPLATES, data.fixedTemplates));
+  if (data.messPurchases) promises.push(setItem(KEYS.MESS_PURCHASES, data.messPurchases));
 
   await Promise.all(promises);
 }

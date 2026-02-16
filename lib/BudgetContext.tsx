@@ -1,11 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
-import type { Expense, SavingsGoal, SavedCard, ActivityItem, UserProfile, LoanEntry, FixedExpense } from './types';
+import type { Expense, SavingsGoal, SavedCard, ActivityItem, UserProfile, LoanEntry, FixedExpense, FixedExpenseTemplate, MessPurchase } from './types';
 import * as Storage from './storage';
 
 interface BudgetContextValue {
   expenses: Expense[];
   loans: LoanEntry[];
   fixedExpenses: FixedExpense[];
+  fixedTemplates: FixedExpenseTemplate[];
+  messPurchases: MessPurchase[];
   profile: UserProfile;
   savingsGoals: SavingsGoal[];
   savedCards: SavedCard[];
@@ -20,6 +22,12 @@ interface BudgetContextValue {
   deleteLoan: (id: string) => Promise<void>;
   addFixedExpense: (expense: Omit<FixedExpense, 'id' | 'createdAt'>) => Promise<void>;
   deleteFixedExpense: (id: string) => Promise<void>;
+  addFixedTemplate: (name: string, amount: number) => Promise<void>;
+  addFixedTemplateEntry: (templateId: string) => Promise<void>;
+  removeFixedTemplateEntry: (templateId: string, entryId: string) => Promise<void>;
+  deleteFixedTemplate: (id: string) => Promise<void>;
+  addMessPurchase: (purchase: Omit<MessPurchase, 'id' | 'createdAt'>) => Promise<void>;
+  deleteMessPurchase: (id: string) => Promise<void>;
   updateProfile: (profile: Partial<UserProfile>) => Promise<void>;
   addSavingsGoal: (goal: Omit<SavingsGoal, 'id' | 'createdAt'>) => Promise<void>;
   updateSavingsGoal: (id: string, updates: Partial<SavingsGoal>) => Promise<void>;
@@ -34,6 +42,7 @@ interface BudgetContextValue {
   remainingDailyBudget: number;
   monthFixedTotal: number;
   totalLoansOutstanding: number;
+  monthMessTotal: number;
   exportAllData: () => Promise<string>;
   importAllData: (jsonString: string) => Promise<void>;
 }
@@ -44,6 +53,8 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loans, setLoans] = useState<LoanEntry[]>([]);
   const [fixedExpenses, setFixedExpenses] = useState<FixedExpense[]>([]);
+  const [fixedTemplates, setFixedTemplates] = useState<FixedExpenseTemplate[]>([]);
+  const [messPurchases, setMessPurchases] = useState<MessPurchase[]>([]);
   const [profile, setProfile] = useState<UserProfile>({ name: 'User', currency: '৳', monthlyBudget: 0, dailyBudgetTarget: 0 });
   const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
   const [savedCards, setSavedCards] = useState<SavedCard[]>([]);
@@ -51,7 +62,7 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   const refreshAll = useCallback(async () => {
-    const [exp, prof, goals, cards, log, lns, fixed] = await Promise.all([
+    const [exp, prof, goals, cards, log, lns, fixed, templates, mess] = await Promise.all([
       Storage.getExpenses(),
       Storage.getUserProfile(),
       Storage.getSavingsGoals(),
@@ -59,6 +70,8 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
       Storage.getActivityLog(),
       Storage.getLoans(),
       Storage.getFixedExpenses(),
+      Storage.getFixedTemplates(),
+      Storage.getMessPurchases(),
     ]);
     setExpenses(exp);
     setProfile(prof);
@@ -67,6 +80,8 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
     setActivityLog(log);
     setLoans(lns);
     setFixedExpenses(fixed);
+    setFixedTemplates(templates);
+    setMessPurchases(mess);
     setIsLoading(false);
   }, []);
 
@@ -109,6 +124,36 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
 
   const deleteFixedExpense = useCallback(async (id: string) => {
     await Storage.deleteFixedExpense(id);
+    await refreshAll();
+  }, [refreshAll]);
+
+  const addFixedTemplate = useCallback(async (name: string, amount: number) => {
+    await Storage.addFixedTemplate(name, amount);
+    await refreshAll();
+  }, [refreshAll]);
+
+  const addFixedTemplateEntry = useCallback(async (templateId: string) => {
+    await Storage.addFixedTemplateEntry(templateId);
+    await refreshAll();
+  }, [refreshAll]);
+
+  const removeFixedTemplateEntry = useCallback(async (templateId: string, entryId: string) => {
+    await Storage.removeFixedTemplateEntry(templateId, entryId);
+    await refreshAll();
+  }, [refreshAll]);
+
+  const deleteFixedTemplate = useCallback(async (id: string) => {
+    await Storage.deleteFixedTemplate(id);
+    await refreshAll();
+  }, [refreshAll]);
+
+  const addMessPurchase = useCallback(async (purchase: Omit<MessPurchase, 'id' | 'createdAt'>) => {
+    await Storage.addMessPurchase(purchase);
+    await refreshAll();
+  }, [refreshAll]);
+
+  const deleteMessPurchase = useCallback(async (id: string) => {
+    await Storage.deleteMessPurchase(id);
     await refreshAll();
   }, [refreshAll]);
 
@@ -164,10 +209,15 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
   const remainingDailyBudget = useMemo(() => profile.dailyBudgetTarget - todayTotal, [profile.dailyBudgetTarget, todayTotal]);
 
   const monthFixedTotal = useMemo(() => {
-    return fixedExpenses
+    const templateTotal = fixedTemplates.reduce((sum, t) => {
+      const monthEntries = t.entries.filter(e => e.date.startsWith(currentMonth));
+      return sum + monthEntries.reduce((s, e) => s + e.amount, 0);
+    }, 0);
+    const legacyTotal = fixedExpenses
       .filter(e => e.date.startsWith(currentMonth))
       .reduce((sum, e) => sum + e.amount, 0);
-  }, [fixedExpenses, currentMonth]);
+    return templateTotal + legacyTotal;
+  }, [fixedTemplates, fixedExpenses, currentMonth]);
 
   const totalLoansOutstanding = useMemo(() => {
     return loans
@@ -175,25 +225,37 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
       .reduce((sum, l) => sum + l.amount, 0);
   }, [loans]);
 
+  const monthMessTotal = useMemo(() => {
+    return messPurchases
+      .filter(p => p.date.startsWith(currentMonth))
+      .reduce((sum, p) => sum + p.amount, 0);
+  }, [messPurchases, currentMonth]);
+
   const value = useMemo(() => ({
-    expenses, loans, fixedExpenses, profile, savingsGoals, savedCards, activityLog, isLoading,
+    expenses, loans, fixedExpenses, fixedTemplates, messPurchases,
+    profile, savingsGoals, savedCards, activityLog, isLoading,
     refreshAll, addExpense, updateExpense, deleteExpense,
     addLoan, updateLoan, deleteLoan,
     addFixedExpense, deleteFixedExpense,
+    addFixedTemplate, addFixedTemplateEntry, removeFixedTemplateEntry, deleteFixedTemplate,
+    addMessPurchase, deleteMessPurchase,
     updateProfile,
     addSavingsGoal, updateSavingsGoal, deleteSavingsGoal,
     addSavedCard, deleteSavedCard, exportAllData, importAllData,
     todayExpenses, monthExpenses, todayTotal, monthTotal, remainingBudget, remainingDailyBudget,
-    monthFixedTotal, totalLoansOutstanding,
-  }), [expenses, loans, fixedExpenses, profile, savingsGoals, savedCards, activityLog, isLoading,
+    monthFixedTotal, totalLoansOutstanding, monthMessTotal,
+  }), [expenses, loans, fixedExpenses, fixedTemplates, messPurchases,
+    profile, savingsGoals, savedCards, activityLog, isLoading,
     refreshAll, addExpense, updateExpense, deleteExpense,
     addLoan, updateLoan, deleteLoan,
     addFixedExpense, deleteFixedExpense,
+    addFixedTemplate, addFixedTemplateEntry, removeFixedTemplateEntry, deleteFixedTemplate,
+    addMessPurchase, deleteMessPurchase,
     updateProfile,
     addSavingsGoal, updateSavingsGoal, deleteSavingsGoal,
     addSavedCard, deleteSavedCard, exportAllData, importAllData,
     todayExpenses, monthExpenses, todayTotal, monthTotal, remainingBudget, remainingDailyBudget,
-    monthFixedTotal, totalLoansOutstanding]);
+    monthFixedTotal, totalLoansOutstanding, monthMessTotal]);
 
   return <BudgetContext.Provider value={value}>{children}</BudgetContext.Provider>;
 }

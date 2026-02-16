@@ -6,19 +6,18 @@ import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import Colors from '@/constants/colors';
 import { useBudget } from '@/lib/BudgetContext';
-import { CATEGORIES, FIXED_CATEGORIES } from '@/lib/types';
+import { CATEGORIES } from '@/lib/types';
 import type { ExpenseType } from '@/lib/types';
 import { getCategoryColor } from '@/lib/helpers';
 
-const EXPENSE_TYPES: { key: ExpenseType; label: string; icon: string; desc: string }[] = [
+const EXPENSE_TYPES: { key: 'daily' | 'loan'; label: string; icon: string; desc: string }[] = [
   { key: 'daily', label: 'Daily', icon: 'today-outline', desc: 'Regular expenses (affects budget)' },
-  { key: 'fixed', label: 'Fixed', icon: 'calendar-outline', desc: 'Bills, rent, subscriptions' },
   { key: 'loan', label: 'Loan', icon: 'wallet-outline', desc: 'Track borrowed money' },
 ];
 
 export default function AddExpenseScreen() {
   const insets = useSafeAreaInsets();
-  const { addExpense, addFixedExpense, addLoan, profile } = useBudget();
+  const { addExpense, addLoan, profile } = useBudget();
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('Food');
@@ -28,7 +27,7 @@ export default function AddExpenseScreen() {
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurringType, setRecurringType] = useState<'daily' | 'weekly' | 'monthly'>('monthly');
   const [saving, setSaving] = useState(false);
-  const [expenseType, setExpenseType] = useState<ExpenseType>('daily');
+  const [expenseType, setExpenseType] = useState<'daily' | 'loan'>('daily');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
@@ -58,14 +57,6 @@ export default function AddExpenseScreen() {
           notes: notes.trim(),
           date: selectedDate + 'T' + new Date().toISOString().split('T')[1],
         });
-      } else if (expenseType === 'fixed') {
-        await addFixedExpense({
-          name: name.trim(),
-          amount: amountNum,
-          category,
-          notes: notes.trim(),
-          date: selectedDate + 'T' + new Date().toISOString().split('T')[1],
-        });
       } else {
         await addExpense({
           name: name.trim(),
@@ -89,7 +80,6 @@ export default function AddExpenseScreen() {
   };
 
   const isValid = name.trim().length > 0 && amount.trim().length > 0 && parseFloat(amount) > 0;
-  const activeCategories = expenseType === 'fixed' ? FIXED_CATEGORIES : CATEGORIES;
 
   return (
     <View style={styles.container}>
@@ -114,8 +104,6 @@ export default function AddExpenseScreen() {
               key={type.key}
               onPress={() => {
                 setExpenseType(type.key);
-                if (type.key === 'fixed') setCategory('Rent');
-                else if (type.key === 'daily') setCategory('Food');
                 if (Platform.OS !== 'web') Haptics.selectionAsync();
               }}
               style={[
@@ -168,7 +156,7 @@ export default function AddExpenseScreen() {
           />
         </View>
 
-        {expenseType !== 'daily' && (
+        {expenseType === 'loan' && (
           <View style={styles.field}>
             <Text style={styles.fieldLabel}>Date</Text>
             <TextInput
@@ -181,11 +169,11 @@ export default function AddExpenseScreen() {
           </View>
         )}
 
-        {expenseType !== 'loan' && (
+        {expenseType === 'daily' && (
           <View style={styles.field}>
             <Text style={styles.fieldLabel}>Category</Text>
             <View style={styles.categoryGrid}>
-              {activeCategories.map(cat => (
+              {CATEGORIES.map(cat => (
                 <Pressable
                   key={cat.name}
                   onPress={() => {
