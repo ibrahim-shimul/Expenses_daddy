@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Expense Daddy",
-    "slug": "expenses-daddy",
+    "slug": "expensesdaddy",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
