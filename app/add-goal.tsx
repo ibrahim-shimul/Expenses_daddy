@@ -84,7 +84,7 @@ export default function AddGoalScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + webTopInset + 8 }]}>
+      <View style={[styles.header, { paddingTop: insets.top + webTopInset + 8, paddingLeft: Math.max(insets.left, 20), paddingRight: Math.max(insets.right, 20) }]}>
         <Pressable onPress={() => router.back()}>
           <Ionicons name="close" size={24} color={Colors.dark.textSecondary} />
         </Pressable>
@@ -94,7 +94,7 @@ export default function AddGoalScreen() {
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={[styles.content, { paddingLeft: Math.max(insets.left, 20), paddingRight: Math.max(insets.right, 20) }]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         {showForm && (
           <View style={styles.formCard}>
             <Text style={styles.formTitle}>New Savings Goal</Text>
@@ -155,9 +155,9 @@ export default function AddGoalScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.dark.background },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: Colors.dark.border },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: Colors.dark.border },
   headerTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 17, color: Colors.dark.text },
-  content: { padding: 20, paddingBottom: 40 },
+  content: { paddingTop: 20, paddingBottom: 40 },
   formCard: { backgroundColor: Colors.dark.surface, borderRadius: 16, padding: 20, marginBottom: 24, borderWidth: 1, borderColor: Colors.dark.border, gap: 14 },
   formTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 16, color: Colors.dark.text, marginBottom: 4 },
   input: { backgroundColor: Colors.dark.surfaceElevated, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontFamily: 'Inter_400Regular', fontSize: 15, color: Colors.dark.text, borderWidth: 1, borderColor: Colors.dark.border },

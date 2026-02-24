@@ -54,7 +54,7 @@ export default function AddCardScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + webTopInset + 8 }]}>
+      <View style={[styles.header, { paddingTop: insets.top + webTopInset + 8, paddingLeft: Math.max(insets.left, 20), paddingRight: Math.max(insets.right, 20) }]}>
         <Pressable onPress={() => router.back()}>
           <Ionicons name="close" size={24} color={Colors.dark.textSecondary} />
         </Pressable>
@@ -64,7 +64,7 @@ export default function AddCardScreen() {
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={[styles.content, { paddingLeft: Math.max(insets.left, 20), paddingRight: Math.max(insets.right, 20) }]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <LinearGradient
           colors={['#1A1A2E', '#2D2D44']}
           style={styles.cardPreview}
@@ -146,9 +146,9 @@ export default function AddCardScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.dark.background },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: Colors.dark.border },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: Colors.dark.border },
   headerTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 17, color: Colors.dark.text },
-  content: { padding: 20, paddingBottom: 40 },
+  content: { paddingTop: 20, paddingBottom: 40 },
   cardPreview: {
     borderRadius: 20,
     padding: 24,
