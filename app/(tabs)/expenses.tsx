@@ -7,7 +7,20 @@ import * as Haptics from 'expo-haptics';
 import Colors from '@/constants/colors';
 import { useBudget } from '@/lib/BudgetContext';
 import { formatCurrency, getCategoryColor, getCategoryIcon, formatDate, formatTime } from '@/lib/helpers';
-import type { Expense, LoanEntry, FixedExpenseTemplate, MessPurchase } from '@/lib/types';
+import type { Expense, LoanEntry, FixedExpenseTemplate, FixedExpenseEntry, MessPurchase } from '@/lib/types';
+
+function confirmAction(title: string, message: string, onConfirm: () => void) {
+  if (Platform.OS === 'web') {
+    if (window.confirm(`${title}\n\n${message}`)) {
+      onConfirm();
+    }
+  } else {
+    Alert.alert(title, message, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: onConfirm },
+    ]);
+  }
+}
 
 type TabType = 'daily' | 'fixed' | 'loans';
 type FixedSubTab = 'repeating' | 'mess';
@@ -18,10 +31,7 @@ function ExpenseItem({ expense, currency, onDelete }: { expense: Expense; curren
       style={({ pressed }) => [styles.expenseItem, pressed && { backgroundColor: Colors.dark.surfaceElevated }]}
       onPress={() => router.push({ pathname: '/edit-expense', params: { id: expense.id } })}
       onLongPress={() => {
-        Alert.alert('Delete Expense', `Remove "${expense.name}"?`, [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Delete', style: 'destructive', onPress: () => onDelete(expense.id) },
-        ]);
+        confirmAction('Delete Expense', `Remove "${expense.name}"?`, () => onDelete(expense.id));
       }}
     >
       <View style={[styles.expenseIcon, { backgroundColor: getCategoryColor(expense.category) + '20' }]}>
@@ -44,14 +54,17 @@ function ExpenseItem({ expense, currency, onDelete }: { expense: Expense; curren
   );
 }
 
-function TemplateCard({ template, currency, onAdd, onDelete }: {
+function TemplateCard({ template, currency, onAdd, onDelete, onDeleteEntry }: {
   template: FixedExpenseTemplate; currency: string;
   onAdd: (id: string) => void; onDelete: (id: string) => void;
+  onDeleteEntry: (templateId: string, entryId: string) => void;
 }) {
+  const [showEntries, setShowEntries] = useState(false);
   const currentMonth = new Date().toISOString().slice(0, 7);
   const monthEntries = template.entries.filter(e => e.date.startsWith(currentMonth));
   const monthTotal = monthEntries.reduce((s, e) => s + e.amount, 0);
   const allTotal = template.entries.reduce((s, e) => s + e.amount, 0);
+  const sortedEntries = [...template.entries].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   return (
     <View style={styles.templateCard}>
@@ -68,7 +81,7 @@ function TemplateCard({ template, currency, onAdd, onDelete }: {
           </View>
         </View>
         <Pressable
-          onPress={() => onDelete(template.id)}
+          onPress={() => confirmAction('Delete Tracker', `Delete "${template.name}" and all its entries?`, () => onDelete(template.id))}
           style={{ padding: 4 }}
         >
           <Ionicons name="trash-outline" size={18} color={Colors.dark.textTertiary} />
@@ -92,16 +105,48 @@ function TemplateCard({ template, currency, onAdd, onDelete }: {
         </View>
       </View>
 
-      <Pressable
-        style={({ pressed }) => [styles.addEntryBtn, pressed && { opacity: 0.7 }]}
-        onPress={() => {
-          onAdd(template.id);
-          if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        }}
-      >
-        <Ionicons name="add" size={20} color="#000" />
-        <Text style={styles.addEntryText}>Add {formatCurrency(template.amount, currency)}</Text>
-      </Pressable>
+      <View style={styles.templateActions}>
+        <Pressable
+          style={({ pressed }) => [styles.addEntryBtn, { flex: 1 }, pressed && { opacity: 0.7 }]}
+          onPress={() => {
+            onAdd(template.id);
+            if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          }}
+        >
+          <Ionicons name="add" size={20} color="#000" />
+          <Text style={styles.addEntryText}>Add {formatCurrency(template.amount, currency)}</Text>
+        </Pressable>
+        {template.entries.length > 0 && (
+          <Pressable
+            style={({ pressed }) => [styles.viewEntriesBtn, pressed && { opacity: 0.7 }]}
+            onPress={() => setShowEntries(!showEntries)}
+          >
+            <Ionicons name={showEntries ? 'chevron-up' : 'list-outline'} size={18} color={Colors.dark.textSecondary} />
+          </Pressable>
+        )}
+      </View>
+
+      {showEntries && sortedEntries.length > 0 && (
+        <View style={styles.entriesList}>
+          <Text style={styles.entriesListTitle}>Entry History</Text>
+          {sortedEntries.map((entry) => (
+            <View key={entry.id} style={styles.entryRow}>
+              <View style={styles.entryDot} />
+              <View style={styles.entryInfo}>
+                <Text style={styles.entryDate}>{formatDate(entry.date)}</Text>
+                <Text style={styles.entryTime}>{formatTime(entry.date)}</Text>
+              </View>
+              <Text style={styles.entryAmount}>{formatCurrency(entry.amount, currency)}</Text>
+              <Pressable
+                onPress={() => confirmAction('Remove Entry', `Remove this ${formatCurrency(entry.amount, currency)} entry?`, () => onDeleteEntry(template.id, entry.id))}
+                style={{ padding: 6 }}
+              >
+                <Ionicons name="close-circle-outline" size={16} color={Colors.dark.textTertiary} />
+              </Pressable>
+            </View>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
@@ -111,10 +156,7 @@ function MessPurchaseItem({ purchase, currency, onDelete }: { purchase: MessPurc
     <Pressable
       style={({ pressed }) => [styles.expenseItem, pressed && { backgroundColor: Colors.dark.surfaceElevated }]}
       onLongPress={() => {
-        Alert.alert('Delete Purchase', `Remove "${purchase.name}"?`, [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Delete', style: 'destructive', onPress: () => onDelete(purchase.id) },
-        ]);
+        confirmAction('Delete Purchase', `Remove "${purchase.name}"?`, () => onDelete(purchase.id));
       }}
     >
       <View style={[styles.expenseIcon, { backgroundColor: '#4ECDC420' }]}>
@@ -135,10 +177,7 @@ function LoanItem({ loan, currency, onTogglePaid, onDelete }: { loan: LoanEntry;
       style={({ pressed }) => [styles.expenseItem, pressed && { backgroundColor: Colors.dark.surfaceElevated }]}
       onPress={() => onTogglePaid(loan.id)}
       onLongPress={() => {
-        Alert.alert('Delete Loan', `Remove "${loan.name}"?`, [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Delete', style: 'destructive', onPress: () => onDelete(loan.id) },
-        ]);
+        confirmAction('Delete Loan', `Remove "${loan.name}"?`, () => onDelete(loan.id));
       }}
     >
       <View style={[styles.expenseIcon, { backgroundColor: loan.isPaid ? Colors.dark.success + '20' : '#FF6B6B20' }]}>
@@ -160,7 +199,7 @@ export default function ExpensesScreen() {
   const insets = useSafeAreaInsets();
   const {
     expenses, deleteExpense,
-    fixedTemplates, addFixedTemplate, addFixedTemplateEntry, deleteFixedTemplate,
+    fixedTemplates, addFixedTemplate, addFixedTemplateEntry, removeFixedTemplateEntry, deleteFixedTemplate,
     messPurchases, addMessPurchase, deleteMessPurchase,
     loans, updateLoan, deleteLoan,
     profile, monthMessTotal,
@@ -252,10 +291,7 @@ export default function ExpensesScreen() {
   };
 
   const handleDeleteTemplate = (id: string) => {
-    Alert.alert('Delete Tracker', 'This will remove the tracker and all its entries.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => deleteFixedTemplate(id) },
-    ]);
+    deleteFixedTemplate(id);
   };
 
   const renderFixedContent = () => {
@@ -329,6 +365,7 @@ export default function ExpensesScreen() {
                   currency={profile.currency}
                   onAdd={addFixedTemplateEntry}
                   onDelete={handleDeleteTemplate}
+                  onDeleteEntry={removeFixedTemplateEntry}
                 />
               ))
             )}
@@ -752,6 +789,10 @@ const styles = StyleSheet.create({
     width: 1,
     backgroundColor: Colors.dark.border,
   },
+  templateActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
   addEntryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -765,6 +806,63 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_600SemiBold',
     fontSize: 14,
     color: '#000',
+  },
+  viewEntriesBtn: {
+    width: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.dark.surfaceHighlight,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  entriesList: {
+    marginTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
+    paddingTop: 12,
+  },
+  entriesListTitle: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 12,
+    color: Colors.dark.textTertiary,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  entryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border + '40',
+  },
+  entryDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#BB8FCE',
+    marginRight: 10,
+  },
+  entryInfo: {
+    flex: 1,
+  },
+  entryDate: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 13,
+    color: Colors.dark.text,
+  },
+  entryTime: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 11,
+    color: Colors.dark.textTertiary,
+    marginTop: 1,
+  },
+  entryAmount: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 13,
+    color: '#BB8FCE',
+    marginRight: 4,
   },
   addNewBtn: {
     flexDirection: 'row',

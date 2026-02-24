@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, Pressable, TextInput, Platform } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, Pressable, TextInput, Platform, KeyboardAvoidingView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -18,6 +18,7 @@ export default function BudgetSettingsScreen() {
   const [budgetHistory, setBudgetHistory] = useState<{ amount: number; date: string }[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
+  const webBottomInset = Platform.OS === 'web' ? 34 : 0;
 
   React.useEffect(() => {
     Storage.getBudgetHistory().then(setBudgetHistory);
@@ -42,18 +43,27 @@ export default function BudgetSettingsScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+    >
       <View style={[styles.header, { paddingTop: insets.top + webTopInset + 8 }]}>
-        <Pressable onPress={() => router.back()}>
+        <Pressable onPress={() => router.back()} hitSlop={12}>
           <Ionicons name="close" size={24} color={Colors.dark.textSecondary} />
         </Pressable>
         <Text style={styles.headerTitle}>Budget Settings</Text>
-        <Pressable onPress={handleSave} disabled={saving} style={({ pressed }) => [{ opacity: saving ? 0.3 : (pressed ? 0.7 : 1) }]}>
+        <Pressable onPress={handleSave} disabled={saving} hitSlop={12} style={({ pressed }) => [{ opacity: saving ? 0.3 : (pressed ? 0.7 : 1) }]}>
           <Ionicons name="checkmark" size={26} color={Colors.dark.success} />
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, webBottomInset) + 40 }]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
+      >
         <View style={styles.field}>
           <Text style={styles.fieldLabel}>Monthly Budget</Text>
           <View style={styles.amountRow}>
@@ -107,7 +117,7 @@ export default function BudgetSettingsScreen() {
           </View>
         )}
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -115,17 +125,17 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.dark.background },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: Colors.dark.border },
   headerTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 17, color: Colors.dark.text },
-  content: { padding: 20, paddingBottom: 40 },
-  field: { marginBottom: 32 },
+  content: { padding: 20 },
+  field: { marginBottom: 28 },
   fieldLabel: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.dark.textSecondary, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
   fieldHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  amountRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.dark.surface, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: Colors.dark.border },
-  currencySign: { fontFamily: 'Inter_700Bold', fontSize: 28, color: Colors.dark.textTertiary, marginRight: 8 },
-  amountInput: { fontFamily: 'Inter_700Bold', fontSize: 32, color: Colors.dark.text, flex: 1 },
+  amountRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.dark.surface, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: Colors.dark.border },
+  currencySign: { fontFamily: 'Inter_700Bold', fontSize: 24, color: Colors.dark.textTertiary, marginRight: 8 },
+  amountInput: { fontFamily: 'Inter_700Bold', fontSize: 28, color: Colors.dark.text, flex: 1 },
   fieldHint: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.dark.textTertiary, marginTop: 8 },
   autoBtn: { backgroundColor: Colors.dark.surfaceHighlight, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
   autoBtnText: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.dark.textSecondary },
-  historySection: { marginTop: 16 },
+  historySection: { marginTop: 8 },
   historyHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   sectionTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 16, color: Colors.dark.text },
   historyItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.dark.border },
